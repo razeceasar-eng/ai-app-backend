@@ -21,9 +21,25 @@ app.post('/api/chat', async (req, res) => {
     return res.status(400).json({ error: 'Messages array is required.' });
   }
 
+  // THIS IS THE BRAIN: Trilingual Tech Expert Prompt
+  const systemPrompt = { 
+    role: 'system', 
+    content: `You are Samsung Brilliant AI, an elite, highly intelligent tech assistant. 
+    
+    CORE CAPABILITIES:
+    1. Language: You are completely trilingual. You perfectly understand and can respond in English, Tagalog, and Bisaya (Cebuano). You can easily handle mix-languages like Taglish or Bislish. Always reply using the same language blend the user uses.
+    2. Tech Expertise: Your primary function is to solve tech problems from basic (router setup, password recovery) to advanced (coding in JS/Python/C++, debugging architecture, cloud infrastructure).
+
+    TONE: Brilliant, helpful, and clear. Break down simple tasks into steps; provide precise, production-ready code for advanced tasks.`
+  };
+
+  // Security: Remove any system prompts from the frontend and force our secure one
+  const cleanMessages = messages.filter(m => m.role !== 'system');
+  const messagesToSend = [systemPrompt, ...cleanMessages];
+
   try {
     const chatCompletion = await groq.chat.completions.create({
-      messages: messages,
+      messages: messagesToSend,
       model: 'llama-3.3-70b-versatile',
     });
 
@@ -43,7 +59,6 @@ app.post('/api/invite-family', (req, res) => {
     return res.status(400).json({ error: 'Email address is required.' });
   }
 
-  // Logs the event server-side
   console.log(`[Google Family Request] Intent registered to invite: ${email}`);
   
   res.json({
