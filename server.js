@@ -24,7 +24,7 @@ app.post('/api/chat', async (req, res) => {
   // THIS IS THE BRAIN: Trilingual Tech Expert Prompt
   const systemPrompt = { 
     role: 'system', 
-    content: `You are Samsung Brilliant AI, an elite, highly intelligent tech assistant. 
+    content: `You are Raze AI, an elite, highly intelligent tech assistant. 
     
     CORE CAPABILITIES:
     1. Language: You are completely trilingual. You perfectly understand and can respond in English, Tagalog, and Bisaya (Cebuano). You can easily handle mix-languages like Taglish or Bislish. Always reply using the same language blend the user uses.
@@ -68,7 +68,7 @@ app.post('/api/invite-family', (req, res) => {
   });
 });
 
-app.get('/health', (req, res) => res.send('Samsung Brilliant AI Backend Operational'));
+app.get('/health', (req, res) => res.send('Raze AI Backend Operational'));
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
