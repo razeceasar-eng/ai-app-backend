@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import Groq from 'groq-sdk';
+import { GoogleGenAI } from '@google/genai';
 
 dotenv.config();
 
@@ -11,7 +11,8 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+// Initialize the official Google Gen AI SDK
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // Chat Completion Endpoint
 app.post('/api/chat', async (req, res) => {
@@ -21,32 +22,49 @@ app.post('/api/chat', async (req, res) => {
     return res.status(400).json({ error: 'Messages array is required.' });
   }
 
-  // THIS IS THE BRAIN: Trilingual Tech Expert Prompt
-  const systemPrompt = { 
-    role: 'system', 
-    content: `You are Raze AI, an elite, highly intelligent tech assistant. 
+  // System instructions to enforce Raze AI's persona
+  const systemInstruction = `You are Raze AI, an elite, highly intelligent tech assistant. 
     
-    CORE CAPABILITIES:
-    1. Language: You are completely trilingual. You perfectly understand and can respond in English, Tagalog, and Bisaya (Cebuano). You can easily handle mix-languages like Taglish or Bislish. Always reply using the same language blend the user uses.
-    2. Tech Expertise: Your primary function is to solve tech problems from basic (router setup, password recovery) to advanced (coding in JS/Python/C++, debugging architecture, cloud infrastructure).
+  CORE CAPABILITIES:
+  1. Language: You are completely trilingual. You perfectly understand and can respond in English, Tagalog, and Bisaya (Cebuano). You can easily handle mix-languages like Taglish or Bislish. Always reply using the same language blend the user uses.
+  2. Tech Expertise: Your primary function is to solve tech problems from basic (router setup, password recovery) to advanced (coding in JS/Python/C++, debugging architecture, cloud infrastructure).
 
-    TONE: Brilliant, helpful, and clear. Break down simple tasks into steps; provide precise, production-ready code for advanced tasks.`
-  };
-
-  // Security: Remove any system prompts from the frontend and force our secure one
-  const cleanMessages = messages.filter(m => m.role !== 'system');
-  const messagesToSend = [systemPrompt, ...cleanMessages];
+  TONE: Brilliant, helpful, and clear. Break down simple tasks into steps; provide precise, production-ready code for advanced tasks.`;
 
   try {
-    const chatCompletion = await groq.chat.completions.create({
-      messages: messagesToSend,
-      model: 'llama-3.3-70b-versatile',
+    // 1. Filter out any system prompts injected by the client for security
+    const cleanMessages = messages.filter(m => m.role !== 'system');
+
+    // 2. Separate the very last message (the new prompt) from the history
+    const lastMessage = cleanMessages[cleanMessages.length - 1];
+    if (!lastMessage) {
+      return res.status(400).json({ error: 'No user messages found.' });
+    }
+
+    // 3. Convert older messages into Gemini's history format 
+    // (Maps OpenAI/Groq roles 'user' -> 'user' and 'assistant' -> 'model')
+    const history = cleanMessages.slice(0, -1).map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }]
+    }));
+
+    // 4. Initialize the multi-turn chat session using the Free Tier Flash model
+    const chat = ai.chats.create({
+      model: 'gemini-2.5-flash', 
+      history: history,
+      config: {
+        systemInstruction: systemInstruction
+      }
     });
 
-    const reply = chatCompletion.choices[0]?.message?.content || '';
-    res.json({ reply });
+    // 5. Send the latest user message
+    const result = await chat.sendMessage({
+      message: lastMessage.content
+    });
+
+    res.json({ reply: result.text });
   } catch (error) {
-    console.error('Groq API Error:', error);
+    console.error('Gemini API Error:', error);
     res.status(500).json({ error: 'Failed to process AI request.' });
   }
 });
